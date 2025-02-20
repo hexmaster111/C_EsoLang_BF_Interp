@@ -13,18 +13,60 @@
 . = like c putchar(). print 1 character to the console
 */
 
-char memory[10], *program;
-int memidx, progidx, loopbaseidx;
+unsigned char memory[50], *program;
+unsigned int memidx, progidx;
+
+unsigned int loopbaseidx_stack[1000], loopbaseidx_stack_top;
+
+void PushLoopBase(int idx)
+{
+    if (loopbaseidx_stack_top > sizeof(loopbaseidx_stack) / sizeof(loopbaseidx_stack[0]))
+    {
+        printf("LOOP STACK OVERFLOW\n");
+        abort();
+    }
+
+    loopbaseidx_stack[loopbaseidx_stack_top] = idx;
+    loopbaseidx_stack_top += 1;
+}
+
+int PopLoopBase()
+{
+    int i = loopbaseidx_stack_top - 1;
+    if (0 > i)
+    {
+        printf("LOOP STACK UNDERFLOW (POP)\n");
+        abort();
+    }
+
+    int r = loopbaseidx_stack[i];
+    loopbaseidx_stack_top = i;
+    return r;
+}
+
+int PeekLoopBase()
+{
+    int i = loopbaseidx_stack_top - 1;
+    if (0 > i)
+    {
+        printf("LOOP STACK UNDERFLOW (PEEK)\n");
+        abort();
+    }
+
+    int r = loopbaseidx_stack[i];
+    return r;
+}
 
 int IdxMod(int a, int b) { return ((a % b) + b) % b; }
 
 int main(int argc, char *argv[])
 {
     memset(memory, 0, sizeof(memory));
+    memset(loopbaseidx_stack, 0, sizeof(loopbaseidx_stack));
+    loopbaseidx_stack_top = 0;
     program = 0;
     memidx = 0;
     progidx = 0;
-    loopbaseidx = -1;
 
     if (2 > argc)
     {
@@ -53,7 +95,7 @@ int main(int argc, char *argv[])
 
     int ticks = 0;
 
-    for (;;ticks++)
+    for (;; ticks++)
     {
         char op = program[progidx];
 
@@ -89,31 +131,20 @@ int main(int argc, char *argv[])
         }
         else if (op == '[')
         {
-            if (loopbaseidx != -1)
-            {
-                printf("INVALID CODE, UNEXPECTED [ at %d\n", progidx);
-                goto DIE;
-            }
-
-            loopbaseidx = progidx + 1;
+            PushLoopBase(progidx + 1);
             progidx += 1;
         }
         else if (op == ']')
         {
-            if (loopbaseidx == -1)
-            {
-                printf("INVALID CODE, UNEXPECTED ] at %d\n", progidx);
-                goto DIE;
-            }
 
             if (memory[memidx] != 0)
             {
-                progidx = loopbaseidx;
+                progidx = PeekLoopBase();
             }
             else
             {
                 progidx += 1;
-                loopbaseidx = -1;
+                PopLoopBase();
             }
         }
         else
@@ -129,19 +160,19 @@ DIE:
 
     for (int i = 0; i < sizeof(memory); i++)
     {
-        printf(" %x ", i);
+        printf(" %2x ", i);
     }
     printf("\n");
 
     for (int i = 0; i < sizeof(memory); i++)
     {
-        printf("[%x]", memory[i]);
+        printf("[%2x]", memory[i]);
     }
     printf("\n");
 
     for (int i = 0; i < memidx; i++)
     {
-        printf("   ");
+        printf("    ");
     }
     printf(" ^\n");
 
